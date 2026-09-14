@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { Driver, listDrivers, listViolations, resolveViolation, Violation } from "@/lib/api";
 import { VIOLATION_SEVERITY_LABELS, VIOLATION_TYPE_LABELS, formatDateTime } from "@/lib/labels";
@@ -8,9 +9,18 @@ import { VIOLATION_SEVERITY_LABELS, VIOLATION_TYPE_LABELS, formatDateTime } from
 type ResolvedFilter = "all" | "open" | "resolved";
 
 export default function ViolationsPage() {
+  return (
+    <Suspense>
+      <ViolationsPageContent />
+    </Suspense>
+  );
+}
+
+function ViolationsPageContent() {
+  const searchParams = useSearchParams();
   const [violations, setViolations] = useState<Violation[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [driverId, setDriverId] = useState("");
+  const [driverId, setDriverId] = useState(() => searchParams.get("driver_id") ?? "");
   const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>("open");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
