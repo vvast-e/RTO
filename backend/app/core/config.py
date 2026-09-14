@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     telegram_provider: str = ""
     telegram_bot_token: str = ""
+    telegram_webhook_secret: str = ""
 
     yookassa_shop_id: str = ""
     yookassa_secret_key: str = ""

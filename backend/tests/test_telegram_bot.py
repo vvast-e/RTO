@@ -92,6 +92,29 @@ def test_webhook_ignores_non_message_updates(client):
     assert resp.json() == {"ok": True}
 
 
+def test_webhook_rejects_wrong_secret_token(client, monkeypatch):
+    monkeypatch.setattr("app.api.routes.telegram.settings.telegram_webhook_secret", "s3cr3t")
+    resp = client.post(
+        "/api/telegram/webhook",
+        json={"update_id": 6, "message": {"chat": {"id": 1}, "text": "/start ABCDEF12"}},
+    )
+    assert resp.status_code == 401
+
+
+def test_webhook_accepts_correct_secret_token(client, auth_headers, monkeypatch):
+    monkeypatch.setattr("app.api.routes.telegram.settings.telegram_webhook_secret", "s3cr3t")
+    resp = client.post("/api/organizations/me/telegram-link-code", headers=auth_headers)
+    code = resp.json()["code"]
+
+    resp = client.post(
+        "/api/telegram/webhook",
+        headers={"X-Telegram-Bot-Api-Secret-Token": "s3cr3t"},
+        json={"update_id": 7, "message": {"chat": {"id": 2}, "text": f"/start {code}"}},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+
 def test_send_reminder_fails_without_linked_chat(client, auth_headers, monkeypatch):
     monkeypatch.setattr(
         "app.api.routes.reminders.get_reminder_sender",

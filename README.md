@@ -83,10 +83,20 @@ frontend/app/ — Next.js App Router
 2. BotFather выдаст токен вида `123456789:AAаБВГ...` — вписать его в
    `TELEGRAM_BOT_TOKEN` в `.env` (файл в `.gitignore`, в репозиторий не
    попадает).
-3. Настроить вебхук, чтобы Telegram слал апдейты на `POST /api/telegram/webhook`:
+3. Придумать случайную строку и вписать её в `TELEGRAM_WEBHOOK_SECRET` в
+   `.env` — без неё `POST /api/telegram/webhook` может вызвать кто угодно
+   (это открытый эндпоинт без своей авторизации, ему её и заменяет секрет
+   Telegram). Настроить вебхук, передав тот же секрет:
    ```
-   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<ваш-домен>/api/telegram/webhook"
+   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<ваш-домен>/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
    ```
+   Telegram будет присылать этот секрет в заголовке
+   `X-Telegram-Bot-Api-Secret-Token` — вебхук сверяет его перед обработкой
+   апдейта и отвечает 401 при несовпадении. Если секрет не задан (например,
+   на раннем этапе локальной разработки), эндпоинт остаётся открытым, но
+   ограничен грубым rate-limit по IP (20 запросов/минуту) — это не замена
+   секрету, а временная защита от подбора кода привязки, пока секрет не
+   настроен.
    Для локальной разработки без публичного HTTPS-адреса нужен туннель
    (например, ngrok) — Telegram не отправляет вебхуки на `localhost`.
 
