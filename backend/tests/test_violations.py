@@ -101,3 +101,70 @@ def test_list_violations_does_not_leak_other_organizations(client, fake_sms, aut
 def test_violations_requires_auth(client):
     resp = client.get("/api/violations")
     assert resp.status_code == 401
+
+
+def test_resolve_violation(client, auth_headers, db_engine):
+    driver = create_driver(client, auth_headers)
+    session_local = sessionmaker(bind=db_engine)
+    db = session_local()
+    try:
+        import uuid
+
+        violation = _add_violation(db, uuid.UUID(driver["id"]), BASE_DAY, ViolationSeverity.violation)
+        violation_id = str(violation.id)
+    finally:
+        db.close()
+
+    resp = client.post(f"/api/violations/{violation_id}/resolve", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["resolved"] is True
+
+    resp = client.get("/api/violations", params={"resolved": "true"}, headers=auth_headers)
+    assert len(resp.json()) == 1
+
+
+def test_resolve_violation_is_idempotent(client, auth_headers, db_engine):
+    driver = create_driver(client, auth_headers)
+    session_local = sessionmaker(bind=db_engine)
+    db = session_local()
+    try:
+        import uuid
+
+        violation = _add_violation(
+            db, uuid.UUID(driver["id"]), BASE_DAY, ViolationSeverity.violation, resolved=True
+        )
+        violation_id = str(violation.id)
+    finally:
+        db.close()
+
+    resp = client.post(f"/api/violations/{violation_id}/resolve", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["resolved"] is True
+
+
+def test_resolve_unknown_violation_is_404(client, auth_headers):
+    resp = client.post(
+        "/api/violations/00000000-0000-0000-0000-000000000000/resolve", headers=auth_headers
+    )
+    assert resp.status_code == 404
+
+
+def test_resolve_violation_for_foreign_organization_is_404(client, fake_sms, auth_headers, db_engine):
+    driver = create_driver(client, auth_headers)
+    session_local = sessionmaker(bind=db_engine)
+    db = session_local()
+    try:
+        import uuid
+
+        violation = _add_violation(db, uuid.UUID(driver["id"]), BASE_DAY, ViolationSeverity.violation)
+        violation_id = str(violation.id)
+    finally:
+        db.close()
+
+    from tests.conftest import register_and_login
+
+    other_tokens = register_and_login(client, fake_sms, phone="+79990000004")
+    other_headers = {"Authorization": f"Bearer {other_tokens['access_token']}"}
+
+    resp = client.post(f"/api/violations/{violation_id}/resolve", headers=other_headers)
+    assert resp.status_code == 404
