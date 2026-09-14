@@ -85,6 +85,88 @@ export function listDrivers(): Promise<Driver[]> {
   return authGetJson("/api/drivers");
 }
 
+export interface DriverCreatePayload {
+  full_name: string;
+  phone?: string;
+  license_number?: string;
+  tachograph_card_number?: string;
+}
+
+export function createDriver(payload: DriverCreatePayload): Promise<Driver> {
+  return authPostJson("/api/drivers", payload);
+}
+
+export type VehicleStatus = "active" | "repair" | "inactive";
+
+export interface Vehicle {
+  id: string;
+  plate_number: string;
+  brand_model: string;
+  tachograph_type: string | null;
+  status: VehicleStatus;
+}
+
+export interface VehicleCreatePayload {
+  plate_number: string;
+  brand_model: string;
+  tachograph_type?: string;
+  status?: VehicleStatus;
+}
+
+export function listVehicles(): Promise<Vehicle[]> {
+  return authGetJson("/api/vehicles");
+}
+
+export function createVehicle(payload: VehicleCreatePayload): Promise<Vehicle> {
+  return authPostJson("/api/vehicles", payload);
+}
+
+export type EntryType = "driving" | "rest" | "other_work" | "availability";
+
+export interface WorkTimeEntry {
+  id: string;
+  driver_id: string;
+  trip_id: string | null;
+  entry_type: EntryType;
+  start_time: string;
+  end_time: string | null;
+  source: "manual" | "import";
+}
+
+export interface WorkTimeEntryCreatePayload {
+  driver_id: string;
+  entry_type: EntryType;
+  start_time: string;
+  end_time?: string;
+}
+
+export function createWorktimeEntry(payload: WorkTimeEntryCreatePayload): Promise<WorkTimeEntry> {
+  return authPostJson("/api/worktime", payload);
+}
+
+export interface WorktimeImportRowError {
+  row_number: number;
+  reason: string;
+}
+
+export interface WorktimeImportReport {
+  created: number;
+  skipped_duplicates: number;
+  failed: number;
+  errors: WorktimeImportRowError[];
+  created_entry_ids: string[];
+}
+
+export async function importWorktimeFile(file: File): Promise<WorktimeImportReport> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await authFetch("/api/worktime/import", {
+    method: "POST",
+    body: formData,
+  });
+  return parseJsonResponse<WorktimeImportReport>(res);
+}
+
 export type ViolationType =
   | "daily_driving_exceeded"
   | "continuous_driving_exceeded"
