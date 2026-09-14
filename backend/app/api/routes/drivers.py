@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_organization_id
 from app.db.session import get_db
 from app.models.driver import Driver
-from app.schemas.driver import DriverCreate, DriverOut
+from app.schemas.driver import DriverCreate, DriverOut, DriverUpdate
 
 router = APIRouter(prefix="/api/drivers", tags=["drivers"])
 
@@ -45,6 +45,23 @@ def get_driver(
     driver = db.get(Driver, driver_id)
     if not driver or driver.organization_id != org_id:
         raise HTTPException(status_code=404, detail="Водитель не найден")
+    return driver
+
+
+@router.patch("/{driver_id}", response_model=DriverOut)
+def update_driver(
+    driver_id: uuid.UUID,
+    payload: DriverUpdate,
+    org_id: uuid.UUID = Depends(get_current_organization_id),
+    db: Session = Depends(get_db),
+):
+    driver = db.get(Driver, driver_id)
+    if not driver or driver.organization_id != org_id:
+        raise HTTPException(status_code=404, detail="Водитель не найден")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(driver, field, value)
+    db.commit()
+    db.refresh(driver)
     return driver
 
 

@@ -42,6 +42,16 @@ async function authPostJson<T>(path: string, body?: unknown): Promise<T> {
   return parseJsonResponse<T>(res);
 }
 
+/** Авторизованный PATCH через authFetch (подставляет/обновляет access-токен). */
+async function authPatchJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await authFetch(path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseJsonResponse<T>(res);
+}
+
 export function requestRegisterCode(phone: string): Promise<void> {
   return postJson("/api/auth/register/request-code", { phone });
 }
@@ -78,6 +88,7 @@ export interface Driver {
   phone: string | null;
   license_number: string | null;
   tachograph_card_number: string | null;
+  license_expiry_date: string | null;
   created_at: string;
 }
 
@@ -90,10 +101,23 @@ export interface DriverCreatePayload {
   phone?: string;
   license_number?: string;
   tachograph_card_number?: string;
+  license_expiry_date?: string;
 }
 
 export function createDriver(payload: DriverCreatePayload): Promise<Driver> {
   return authPostJson("/api/drivers", payload);
+}
+
+export interface DriverUpdatePayload {
+  full_name?: string;
+  phone?: string;
+  license_number?: string;
+  tachograph_card_number?: string;
+  license_expiry_date?: string | null;
+}
+
+export function updateDriver(id: string, payload: DriverUpdatePayload): Promise<Driver> {
+  return authPatchJson(`/api/drivers/${id}`, payload);
 }
 
 export type VehicleStatus = "active" | "repair" | "inactive";
@@ -104,6 +128,7 @@ export interface Vehicle {
   brand_model: string;
   tachograph_type: string | null;
   status: VehicleStatus;
+  next_inspection_date: string | null;
 }
 
 export interface VehicleCreatePayload {
@@ -111,6 +136,7 @@ export interface VehicleCreatePayload {
   brand_model: string;
   tachograph_type?: string;
   status?: VehicleStatus;
+  next_inspection_date?: string;
 }
 
 export function listVehicles(): Promise<Vehicle[]> {
@@ -119,6 +145,18 @@ export function listVehicles(): Promise<Vehicle[]> {
 
 export function createVehicle(payload: VehicleCreatePayload): Promise<Vehicle> {
   return authPostJson("/api/vehicles", payload);
+}
+
+export interface VehicleUpdatePayload {
+  plate_number?: string;
+  brand_model?: string;
+  tachograph_type?: string;
+  status?: VehicleStatus;
+  next_inspection_date?: string | null;
+}
+
+export function updateVehicle(id: string, payload: VehicleUpdatePayload): Promise<Vehicle> {
+  return authPatchJson(`/api/vehicles/${id}`, payload);
 }
 
 export type EntryType = "driving" | "rest" | "other_work" | "availability";
@@ -214,6 +252,7 @@ export type ReminderType =
   | "rto_deadline"
   | "etrn_deadline"
   | "vehicle_inspection"
+  | "driver_license_expiry"
   | "custom";
 
 export interface Reminder {

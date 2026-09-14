@@ -1,6 +1,7 @@
 import uuid
+from datetime import date
 
-from sqlalchemy import String, ForeignKey, BigInteger
+from sqlalchemy import String, ForeignKey, BigInteger, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,5 +22,9 @@ class Driver(UUIDPKMixin, TimestampMixin, Base):
     # Номер карты водителя тахографа или табельный номер — используется для
     # сопоставления строк импорта из CSV/Excel-выгрузки тахографа с водителем.
     tachograph_card_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Срок действия водительского удостоверения — источник для автогенерации
+    # напоминаний (app.services.reminder_generation). Nullable: не у всех
+    # записей дата известна сразу, генерация просто пропускает записи с NULL.
+    license_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     organization: Mapped["Organization"] = relationship(back_populates="drivers")

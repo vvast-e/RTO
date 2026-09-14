@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_organization_id
 from app.db.session import get_db
 from app.models.vehicle import Vehicle
-from app.schemas.vehicle import VehicleCreate, VehicleOut
+from app.schemas.vehicle import VehicleCreate, VehicleOut, VehicleUpdate
 
 router = APIRouter(prefix="/api/vehicles", tags=["vehicles"])
 
@@ -50,6 +50,23 @@ def get_vehicle(
     vehicle = db.get(Vehicle, vehicle_id)
     if not vehicle or vehicle.organization_id != org_id:
         raise HTTPException(status_code=404, detail="Транспортное средство не найдено")
+    return vehicle
+
+
+@router.patch("/{vehicle_id}", response_model=VehicleOut)
+def update_vehicle(
+    vehicle_id: uuid.UUID,
+    payload: VehicleUpdate,
+    org_id: uuid.UUID = Depends(get_current_organization_id),
+    db: Session = Depends(get_db),
+):
+    vehicle = db.get(Vehicle, vehicle_id)
+    if not vehicle or vehicle.organization_id != org_id:
+        raise HTTPException(status_code=404, detail="Транспортное средство не найдено")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(vehicle, field, value)
+    db.commit()
+    db.refresh(vehicle)
     return vehicle
 
 

@@ -22,10 +22,21 @@ celery_app.conf.beat_schedule = {
         "task": "reminders.send_due",
         "schedule": 3600.0,
     },
+    # Даты ТО/прав (Vehicle.next_inspection_date, Driver.license_expiry_date)
+    # меняются редко и генерация смотрит на окно в GENERATION_WINDOW_DAYS
+    # (14 дней) вперёд — в отличие от пересчёта РТО и рассылки напоминаний
+    # выше, здесь часовая частота ничего не выигрывает и только дублирует
+    # нагрузку. Раз в сутки достаточно, чтобы новое напоминание появилось не
+    # позднее чем через день после того, как дедлайн попал в окно генерации.
+    "generate-reminders-daily": {
+        "task": "reminders.generate_for_all_organizations",
+        "schedule": 86400.0,
+    },
 }
 
-# Регистрирует таски пересчёта РТО и рассылки напоминаний в celery_app
-# (импорт в конце файла, чтобы избежать циклического импорта celery_app <->
-# app.tasks.*).
+# Регистрирует таски пересчёта РТО и рассылки/генерации напоминаний в
+# celery_app (импорт в конце файла, чтобы избежать циклического импорта
+# celery_app <-> app.tasks.*).
+from app.tasks import reminder_generation_tasks  # noqa: E402,F401
 from app.tasks import reminder_tasks  # noqa: E402,F401
 from app.tasks import rto_tasks  # noqa: E402,F401
