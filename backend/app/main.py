@@ -17,6 +17,7 @@ from app.api.routes import (
     trips,
     worktime,
     violations,
+    waybills,
     reminders,
     organizations,
     telegram,
@@ -37,6 +38,7 @@ app.include_router(drivers.router)
 app.include_router(trips.router)
 app.include_router(worktime.router)
 app.include_router(violations.router)
+app.include_router(waybills.router)
 app.include_router(reminders.router)
 app.include_router(organizations.router)
 app.include_router(telegram.router)

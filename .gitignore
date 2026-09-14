@@ -12,3 +12,4 @@ out/
 /backend/app.db
 /postgres_data/
 celerybeat-schedule
+/backend/generated/
