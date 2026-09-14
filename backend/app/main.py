@@ -1,5 +1,14 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Без этого корневой логгер молчит на уровне INFO, и заглушки вроде
+# ConsoleSmsSender/ConsoleReminderSender (см. app/services/sms.py,
+# app/services/reminder_sender.py) не печатают код/напоминание никуда —
+# в тестах это незаметно (pytest caplog перехватывает логи независимо от
+# хендлеров), а при локальном запуске просто исчезает.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from app.api.routes import (
     auth,

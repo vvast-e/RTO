@@ -11,3 +11,4 @@ out/
 .DS_Store
 /backend/app.db
 /postgres_data/
+celerybeat-schedule
