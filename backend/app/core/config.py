@@ -25,5 +25,11 @@ class Settings(BaseSettings):
     s3_secret_key: str = ""
     s3_bucket: str = "rto-files"
 
+    # Каталог для сгенерированных PDF путевых листов. По умолчанию — внутри
+    # рабочей директории backend, которая в docker-compose примонтирована с
+    # хоста (bind mount ./backend:/app), поэтому файлы переживают рестарт
+    # контейнера без отдельного named volume.
+    waybill_pdf_dir: str = "generated/waybills"
+
 
 settings = Settings()
