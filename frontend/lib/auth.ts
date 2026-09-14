@@ -36,3 +36,67 @@ export function clearTokens(): void {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+let refreshPromise: Promise<TokenPair> | null = null;
+
+/**
+ * Обновляет access-токен через refresh-токен. Параллельные вызовы (несколько
+ * запросов, упавших с 401 одновременно) шарят один промис, чтобы не слать
+ * несколько /api/auth/refresh подряд.
+ */
+async function doRefresh(): Promise<TokenPair> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) throw new Error("Не удалось обновить сессию");
+
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Не удалось обновить сессию");
+        return res.json() as Promise<TokenPair>;
+      })
+      .then((tokens) => {
+        setTokens(tokens);
+        return tokens;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+/**
+ * fetch с авторизацией: подставляет access-токен, а при 401 один раз
+ * пробует обновить его через refresh-токен и повторяет запрос. Если
+ * обновить не удалось — чистит токены и редиректит на /login.
+ */
+export async function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const withAuth = (token: string | null): RequestInit => ({
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  let res = await fetch(`${API_URL}${path}`, withAuth(getAccessToken()));
+
+  if (res.status === 401) {
+    try {
+      const tokens = await doRefresh();
+      res = await fetch(`${API_URL}${path}`, withAuth(tokens.access_token));
+    } catch {
+      clearTokens();
+      if (typeof window !== "undefined") window.location.href = "/login";
+      throw new Error("Сессия истекла, войдите снова");
+    }
+  }
+
+  return res;
+}

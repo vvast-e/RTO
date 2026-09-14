@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import AuthGuard from "@/components/AuthGuard";
+import NavBar from "@/components/NavBar";
 
 export const metadata: Metadata = {
   title: "РТО-аналитика",
@@ -16,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className="min-h-screen bg-gray-50 text-gray-900">
-        <AuthGuard>{children}</AuthGuard>
+        <AuthGuard>
+          <NavBar />
+          {children}
+        </AuthGuard>
       </body>
     </html>
   );
