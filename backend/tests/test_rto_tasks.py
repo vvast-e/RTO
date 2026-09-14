@@ -11,6 +11,7 @@ from app.models.organization import Organization
 from app.models.violation import RtoViolation
 from app.models.worktime import EntryType, WorkTimeEntry
 from app.tasks.rto_tasks import (
+    recalculate_rto_for_all_organizations_task,
     recalculate_rto_for_driver_task,
     recalculate_rto_for_organization_task,
 )
@@ -110,3 +111,73 @@ def test_recalculate_rto_for_organization_task_covers_all_drivers(db_engine, mon
 
     total_created = recalculate_rto_for_organization_task.run(org_id, period_start, period_end)
     assert total_created == 2
+
+
+def _seed_org_with_violation(db, name: str) -> None:
+    org = Organization(name=name)
+    db.add(org)
+    db.flush()
+    driver = Driver(organization_id=org.id, full_name=f"Водитель {name}")
+    db.add(driver)
+    db.flush()
+    db.add(
+        WorkTimeEntry(
+            driver_id=driver.id,
+            entry_type=EntryType.driving,
+            start_time=BASE_DAY,
+            end_time=BASE_DAY + timedelta(hours=5),
+        )
+    )
+    db.add(
+        WorkTimeEntry(
+            driver_id=driver.id,
+            entry_type=EntryType.rest,
+            start_time=BASE_DAY + timedelta(hours=5),
+            end_time=BASE_DAY + timedelta(hours=17),
+        )
+    )
+    db.commit()
+
+
+def test_recalculate_rto_for_all_organizations_task_covers_every_org_in_isolation(
+    db_engine, monkeypatch
+):
+    session_local = sessionmaker(bind=db_engine)
+    monkeypatch.setattr("app.tasks.rto_tasks.SessionLocal", session_local)
+    # BASE_DAY фиксирован в прошлом (2026-09-14) относительно момента прогона
+    # тестов — окно PERIODIC_RECALC_WINDOW от datetime.utcnow() его не заденет,
+    # поэтому подменяем и точку отсчёта "сейчас" на BASE_DAY.
+    monkeypatch.setattr(
+        "app.tasks.rto_tasks.datetime",
+        type("_FixedDatetime", (datetime,), {"utcnow": classmethod(lambda cls: BASE_DAY + timedelta(hours=18))}),
+    )
+
+    db = session_local()
+    try:
+        _seed_org_with_violation(db, "Альфа")
+        _seed_org_with_violation(db, "Бета")
+    finally:
+        db.close()
+
+    dispatched = recalculate_rto_for_all_organizations_task.run()
+    assert dispatched == 2
+
+    db = session_local()
+    try:
+        violations = db.query(RtoViolation).all()
+        assert len(violations) == 2
+        # Каждое нарушение принадлежит своему водителю своей организации —
+        # пересчёт одной организации не затронул данные другой.
+        driver_ids = {v.driver_id for v in violations}
+        assert len(driver_ids) == 2
+    finally:
+        db.close()
+
+    # Идемпотентность повторного запуска периодического таска.
+    dispatched_again = recalculate_rto_for_all_organizations_task.run()
+    assert dispatched_again == 2
+    db = session_local()
+    try:
+        assert db.query(RtoViolation).count() == 2
+    finally:
+        db.close()

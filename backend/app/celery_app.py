@@ -5,8 +5,14 @@ from app.core.config import settings
 celery_app = Celery("rto", broker=settings.redis_url, backend=settings.redis_url)
 
 celery_app.conf.beat_schedule = {
-    # TODO: подключить периодический пересчёт РТО (rto.recalculate_for_organization)
-    # для всех организаций, когда появится список организаций/расписание в БД.
+    # MVP: организаций мало, раз в час достаточно и не создаёт лишней
+    # нагрузки — сам пересчёт по каждой организации идёт за скользящее
+    # окно (см. PERIODIC_RECALC_WINDOW в app.tasks.rto_tasks), а не за
+    # всю историю.
+    "recalculate-rto-for-all-organizations-hourly": {
+        "task": "rto.recalculate_for_all_organizations",
+        "schedule": 3600.0,
+    },
 }
 
 # Регистрирует таски пересчёта РТО в celery_app (импорт в конце файла,
