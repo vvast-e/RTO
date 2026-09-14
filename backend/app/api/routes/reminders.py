@@ -8,7 +8,7 @@ from app.api.deps import get_current_organization_id
 from app.db.session import get_db
 from app.models.reminder import Reminder, ReminderType
 from app.schemas.reminder import ReminderCreate, ReminderOut
-from app.services.reminder_sender import get_reminder_sender
+from app.services.reminder_sender import TelegramChatNotLinkedError, get_reminder_sender
 
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
 
@@ -55,7 +55,10 @@ def send_reminder(
         raise HTTPException(status_code=404, detail="Напоминание не найдено")
 
     sender = get_reminder_sender()
-    telegram_message_id = sender.send(reminder)
+    try:
+        telegram_message_id = sender.send(reminder)
+    except TelegramChatNotLinkedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     reminder.sent = True
     reminder.telegram_message_id = telegram_message_id
     db.commit()

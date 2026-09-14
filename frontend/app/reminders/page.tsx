@@ -5,7 +5,10 @@ import { FormEvent, useEffect, useState } from "react";
 import {
   Reminder,
   ReminderType,
+  TelegramLinkCode,
   createReminder,
+  getOrganizationMe,
+  getTelegramLinkCode,
   listReminders,
   sendReminder,
 } from "@/lib/api";
@@ -29,6 +32,11 @@ export default function RemindersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [telegramLinked, setTelegramLinked] = useState<boolean | null>(null);
+  const [linkCode, setLinkCode] = useState<TelegramLinkCode | null>(null);
+  const [linkCodeError, setLinkCodeError] = useState<string | null>(null);
+  const [linkCodeLoading, setLinkCodeLoading] = useState(false);
+
   function load() {
     setLoading(true);
     setError(null);
@@ -36,11 +44,27 @@ export default function RemindersPage() {
       .then(setReminders)
       .catch((err) => setError(err instanceof Error ? err.message : "Не удалось загрузить напоминания"))
       .finally(() => setLoading(false));
+    getOrganizationMe()
+      .then((org) => setTelegramLinked(org.telegram_linked))
+      .catch(() => setTelegramLinked(null));
   }
 
   useEffect(() => {
     load();
   }, []);
+
+  async function handleGetLinkCode() {
+    setLinkCodeError(null);
+    setLinkCodeLoading(true);
+    try {
+      const code = await getTelegramLinkCode();
+      setLinkCode(code);
+    } catch (err) {
+      setLinkCodeError(err instanceof Error ? err.message : "Не удалось получить код привязки");
+    } finally {
+      setLinkCodeLoading(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -76,6 +100,34 @@ export default function RemindersPage() {
   return (
     <main className="mx-auto max-w-4xl p-4">
       <h1 className="text-2xl font-semibold">Напоминания</h1>
+
+      {telegramLinked === false && (
+        <div className="mt-4 rounded border border-yellow-300 bg-yellow-50 p-4 text-sm">
+          <p className="font-medium">Telegram-чат не привязан</p>
+          <p className="mt-1 text-gray-600">
+            Напоминания создаются и сохраняются, но реальная отправка через бота
+            станет доступна после привязки чата.
+          </p>
+          {linkCode ? (
+            <p className="mt-2">
+              Отправьте боту команду:{" "}
+              <code className="rounded bg-white px-2 py-1">/start {linkCode.code}</code>
+              <br />
+              Код действует до {new Date(linkCode.expires_at).toLocaleTimeString()}.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleGetLinkCode}
+              disabled={linkCodeLoading}
+              className="mt-2 rounded bg-gray-900 px-3 py-1.5 text-white disabled:opacity-50"
+            >
+              {linkCodeLoading ? "Получение..." : "Получить код привязки"}
+            </button>
+          )}
+          {linkCodeError && <p className="mt-1 text-red-600">{linkCodeError}</p>}
+        </div>
+      )}
 
       <form
         onSubmit={handleSubmit}

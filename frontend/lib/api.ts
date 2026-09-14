@@ -251,3 +251,21 @@ export function createReminder(payload: ReminderCreatePayload): Promise<Reminder
 export function sendReminder(id: string): Promise<Reminder> {
   return authPostJson(`/api/reminders/${id}/send`);
 }
+
+export interface OrganizationMe {
+  name: string;
+  telegram_linked: boolean;
+}
+
+export function getOrganizationMe(): Promise<OrganizationMe> {
+  return authGetJson("/api/organizations/me");
+}
+
+export interface TelegramLinkCode {
+  code: string;
+  expires_at: string;
+}
+
+export function getTelegramLinkCode(): Promise<TelegramLinkCode> {
+  return authPostJson("/api/organizations/me/telegram-link-code");
+}

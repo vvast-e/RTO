@@ -9,6 +9,7 @@ from app.models.violation import RtoViolation
 from app.models.waybill import Waybill
 from app.models.reminder import Reminder
 from app.models.subscription import Subscription
+from app.models.telegram_link_code import TelegramLinkCode
 
 __all__ = [
     "Organization",
@@ -22,4 +23,5 @@ __all__ = [
     "Waybill",
     "Reminder",
     "Subscription",
+    "TelegramLinkCode",
 ]

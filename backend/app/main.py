@@ -1,7 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, vehicles, drivers, trips, worktime, violations, reminders
+from app.api.routes import (
+    auth,
+    vehicles,
+    drivers,
+    trips,
+    worktime,
+    violations,
+    reminders,
+    organizations,
+    telegram,
+)
 
 app = FastAPI(title="RTO-аналитика API", version="0.1.0")
 
@@ -19,6 +29,8 @@ app.include_router(trips.router)
 app.include_router(worktime.router)
 app.include_router(violations.router)
 app.include_router(reminders.router)
+app.include_router(organizations.router)
+app.include_router(telegram.router)
 
 
 @app.get("/health")
