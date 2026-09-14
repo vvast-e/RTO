@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,8 +8,10 @@ from app.api.deps import get_current_organization_id
 from app.db.session import get_db
 from app.models.driver import Driver
 from app.models.trip import Trip
-from app.models.worktime import WorkTimeEntry
+from app.models.worktime import EntrySource, WorkTimeEntry
 from app.schemas.worktime import WorkTimeEntryCreate, WorkTimeEntryOut
+from app.schemas.worktime_import import WorktimeImportReport, WorktimeImportRowError
+from app.services.tachograph_import import UnsupportedFileFormatError, parse_file
 
 router = APIRouter(prefix="/api/worktime", tags=["worktime"])
 
@@ -69,3 +71,127 @@ def get_worktime_entry(
         raise HTTPException(status_code=404, detail="Запись не найдена")
     _get_owned_driver(entry.driver_id, org_id, db)
     return entry
+
+
+def _build_driver_lookup(org_id: uuid.UUID, db: Session) -> tuple[dict[str, Driver], dict[str, list[Driver]]]:
+    """Строит индексы водителей организации для сопоставления строк импорта:
+    по номеру карты (уникально) и по нормализованному ФИО (может быть несколько
+    водителей с одинаковым ФИО — тогда сопоставление по имени неоднозначно)."""
+    drivers = db.execute(select(Driver).where(Driver.organization_id == org_id)).scalars().all()
+    by_card: dict[str, Driver] = {}
+    by_name: dict[str, list[Driver]] = {}
+    for driver in drivers:
+        if driver.tachograph_card_number:
+            by_card[driver.tachograph_card_number.strip()] = driver
+        name_key = driver.full_name.strip().lower()
+        by_name.setdefault(name_key, []).append(driver)
+    return by_card, by_name
+
+
+@router.post("/import", response_model=WorktimeImportReport)
+def import_worktime_entries(
+    file: UploadFile,
+    org_id: uuid.UUID = Depends(get_current_organization_id),
+    db: Session = Depends(get_db),
+):
+    """Импортирует записи WorkTimeEntry из CSV/Excel-выгрузки тахографа.
+
+    Сопоставление водителя: сначала по номеру карты (Driver.tachograph_card_number),
+    при отсутствии совпадения — по ФИО (Driver.full_name, без учёта регистра).
+    Строка без однозначного совпадения по водителю попадает в отчёт как ошибка,
+    запись не создаётся.
+
+    Идемпотентность: запись с уже существующим сочетанием
+    (driver_id, entry_type, start_time, end_time) — включая уже импортированные
+    ранее из этого же файла — не создаётся повторно, а считается пропущенным
+    дубликатом. Это же правило действует и внутри одного файла (дубли строк).
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Не передано имя файла")
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Пустой файл")
+
+    try:
+        parse_result = parse_file(file.filename, content)
+    except UnsupportedFileFormatError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Не удалось прочитать файл — повреждён или не соответствует формату")
+
+    errors = [
+        WorktimeImportRowError(row_number=e.row_number, reason=e.reason)
+        for e in parse_result.errors
+    ]
+
+    by_card, by_name = _build_driver_lookup(org_id, db)
+
+    existing_stmt = select(
+        WorkTimeEntry.driver_id,
+        WorkTimeEntry.entry_type,
+        WorkTimeEntry.start_time,
+        WorkTimeEntry.end_time,
+    ).join(Driver, WorkTimeEntry.driver_id == Driver.id).where(Driver.organization_id == org_id)
+    seen: set[tuple] = {
+        (row.driver_id, row.entry_type, row.start_time, row.end_time)
+        for row in db.execute(existing_stmt)
+    }
+
+    created_entries: list[WorkTimeEntry] = []
+    for row in parse_result.rows:
+        driver: Driver | None = None
+        if row.card_number and row.card_number in by_card:
+            driver = by_card[row.card_number]
+        else:
+            candidates = by_name.get(row.full_name.strip().lower(), [])
+            if len(candidates) == 1:
+                driver = candidates[0]
+            elif len(candidates) > 1:
+                errors.append(
+                    WorktimeImportRowError(
+                        row_number=row.row_number,
+                        reason=f"Несколько водителей с ФИО '{row.full_name}' — уточните номер карты",
+                    )
+                )
+                continue
+
+        if driver is None:
+            errors.append(
+                WorktimeImportRowError(
+                    row_number=row.row_number,
+                    reason=f"Водитель не найден: '{row.full_name}'"
+                    + (f" (карта {row.card_number})" if row.card_number else ""),
+                )
+            )
+            continue
+
+        dedup_key = (driver.id, row.entry_type, row.start_time, row.end_time)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        entry = WorkTimeEntry(
+            driver_id=driver.id,
+            entry_type=row.entry_type,
+            start_time=row.start_time,
+            end_time=row.end_time,
+            source=EntrySource.import_file,
+        )
+        db.add(entry)
+        created_entries.append(entry)
+
+    db.commit()
+    for entry in created_entries:
+        db.refresh(entry)
+
+    skipped_duplicates = len(parse_result.rows) - len(created_entries) - (
+        len(errors) - len(parse_result.errors)
+    )
+
+    return WorktimeImportReport(
+        created=len(created_entries),
+        skipped_duplicates=skipped_duplicates,
+        failed=len(errors),
+        errors=errors,
+        created_entry_ids=[e.id for e in created_entries],
+    )

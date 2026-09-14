@@ -18,5 +18,8 @@ class Driver(UUIDPKMixin, TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     license_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     telegram_chat_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Номер карты водителя тахографа или табельный номер — используется для
+    # сопоставления строк импорта из CSV/Excel-выгрузки тахографа с водителем.
+    tachograph_card_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     organization: Mapped["Organization"] = relationship(back_populates="drivers")
