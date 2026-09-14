@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+import AuthGuard from "@/components/AuthGuard";
+
 export const metadata: Metadata = {
   title: "РТО-аналитика",
   description: "Учёт РТО и путевых листов для малых автоперевозчиков",
@@ -13,7 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className="min-h-screen bg-gray-50 text-gray-900">{children}</body>
+      <body className="min-h-screen bg-gray-50 text-gray-900">
+        <AuthGuard>{children}</AuthGuard>
+      </body>
     </html>
   );
 }
