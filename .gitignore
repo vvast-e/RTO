@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+node_modules/
+.next/
+out/
+*.log
+.DS_Store
+/backend/app.db
+/postgres_data/
