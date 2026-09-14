@@ -1,5 +1,6 @@
 from app.models.organization import Organization
 from app.models.user import User
+from app.models.phone_verification import PhoneVerificationCode
 from app.models.vehicle import Vehicle
 from app.models.driver import Driver
 from app.models.trip import Trip
@@ -12,6 +13,7 @@ from app.models.subscription import Subscription
 __all__ = [
     "Organization",
     "User",
+    "PhoneVerificationCode",
     "Vehicle",
     "Driver",
     "Trip",

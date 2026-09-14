@@ -50,17 +50,56 @@ frontend/app/ — Next.js App Router
    как показывать пользователям реальные нарушения.
 2. **Форма путевого листа** — не реализована, нужно определить актуальный
    утверждённый бланк (грузовой транспорт) перед вёрсткой PDF-шаблона.
-3. **SMS-агрегатор** для входа по телефону — не выбран (сравнить SMS.ru,
-   Devino, SMSC). Аутентификация в MVP-скелете пока не реализована.
+3. **SMS-агрегатор** для входа по телефону — окончательно не выбран
+   (сравнить SMS.ru, Devino, SMSC). Реализован абстрактный `SmsSender`
+   (`backend/app/services/sms.py`) с дефолтной реализацией под SMS.ru
+   (`SMS_PROVIDER=smsru`, нужен `SMS_API_KEY`) и консольной заглушкой для
+   разработки/тестов (`SMS_PROVIDER=console` или не задан — код просто
+   логируется). Смена агрегатора — добавить ещё один класс `SmsSender` и
+   ветку в `get_sms_sender()`.
 4. **Формат CSV/Excel с тахографа** — уточнить у пилотных клиентов перед
    реализацией импорта WorkTimeEntry.
+5. **Alembic-миграции** — в проекте пока нет ни одной сгенерированной
+   миграции (`backend/alembic/versions/` пуст) ни для одной модели, включая
+   добавленную в этом этапе `PhoneVerificationCode`. Перед первым деплоем
+   на реальную БД нужно поднять Postgres и выполнить
+   `alembic revision --autogenerate -m "initial"` в `backend/`.
+
+## Аутентификация
+
+Вход и регистрация организации — по номеру телефона через одноразовый
+SMS-код (см. `backend/app/api/routes/auth.py`):
+
+- `POST /api/auth/register/request-code`, `POST /api/auth/register/confirm`
+  — регистрация новой организации + первого пользователя (роль `owner`).
+- `POST /api/auth/login/request-code`, `POST /api/auth/login/confirm`
+  — вход существующего пользователя.
+- `POST /api/auth/refresh` — обновление пары токенов по refresh-токену.
+
+Выдаётся пара JWT: access (`ACCESS_TOKEN_EXPIRE_MINUTES`, payload
+`{sub: user_id, organization_id, role}`) и refresh
+(`REFRESH_TOKEN_EXPIRE_DAYS`). Защищённые эндпоинты требуют заголовок
+`Authorization: Bearer <access_token>` — заглушка `X-Organization-Id`
+удалена, `get_current_organization_id`/`get_current_user` в
+`backend/app/api/deps.py` теперь реально проверяют JWT.
+
+Антиабьюз (`backend/app/services/auth_service.py`): повторную отправку
+кода на один номер можно запросить не чаще раза в 60 секунд; на ввод кода
+даётся 5 попыток, после чего код инвалидируется и нужно запросить новый;
+код действует 5 минут.
+
+Фронтенд (`frontend/app/login/page.tsx`) хранит токены в `localStorage`
+(решение задокументировано в `frontend/lib/auth.ts`) и редиректит на
+`/login` при отсутствии токена через `frontend/components/AuthGuard.tsx`,
+подключённый в корневом layout.
 
 ## Статус реализации (по спринтам из ТЗ)
 
 - [x] Спринт 1 (частично): каркас FastAPI/Next.js/Docker Compose, модели
-      данных, CRUD для Vehicle/Driver/Trip (без аутентификации — заглушка
-      через заголовок `X-Organization-Id`)
+      данных, CRUD для Vehicle/Driver/Trip
+- [x] Аутентификация по SMS-коду (JWT access/refresh, rate limiting,
+      минимальный фронтенд входа/регистрации) — см. раздел выше
 - [x] Спринт 3 (частично): `RtoCalculator` с юнит-тестами на заглушечных
       нормативах — требует сверки цифр перед продом
-- [ ] Аутентификация по SMS, дашборд "светофор", импорт CSV, PDF путевых
-      листов, Telegram-бот, ЮKassa — не реализованы
+- [ ] Дашборд "светофор", импорт CSV, PDF путевых листов, Telegram-бот,
+      ЮKassa — не реализованы
