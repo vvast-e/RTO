@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import select
@@ -12,6 +13,7 @@ from app.models.worktime import EntrySource, WorkTimeEntry
 from app.schemas.worktime import WorkTimeEntryCreate, WorkTimeEntryOut
 from app.schemas.worktime_import import WorktimeImportReport, WorktimeImportRowError
 from app.services.tachograph_import import UnsupportedFileFormatError, parse_file
+from app.tasks.rto_tasks import recalculate_rto_for_driver_task
 
 router = APIRouter(prefix="/api/worktime", tags=["worktime"])
 
@@ -57,6 +59,11 @@ def create_worktime_entry(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+
+    period_end = (entry.end_time or entry.start_time) + timedelta(seconds=1)
+    recalculate_rto_for_driver_task.delay(
+        str(entry.driver_id), entry.start_time.isoformat(), period_end.isoformat()
+    )
     return entry
 
 
@@ -183,6 +190,16 @@ def import_worktime_entries(
     db.commit()
     for entry in created_entries:
         db.refresh(entry)
+
+    entries_by_driver: dict[uuid.UUID, list[WorkTimeEntry]] = {}
+    for entry in created_entries:
+        entries_by_driver.setdefault(entry.driver_id, []).append(entry)
+    for driver_id, driver_entries in entries_by_driver.items():
+        period_start = min(e.start_time for e in driver_entries)
+        period_end = max(e.end_time or e.start_time for e in driver_entries) + timedelta(seconds=1)
+        recalculate_rto_for_driver_task.delay(
+            str(driver_id), period_start.isoformat(), period_end.isoformat()
+        )
 
     skipped_duplicates = len(parse_result.rows) - len(created_entries) - (
         len(errors) - len(parse_result.errors)

@@ -5,9 +5,16 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 — регистрирует все модели в Base.metadata
+from app.celery_app import celery_app
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app as fastapi_app
+
+# Роуты триггерят пересчёт РТО через recalculate_rto_for_driver_task.delay(...).
+# В тестах нет брокера Redis — переводим Celery в eager-режим, чтобы .delay()
+# выполнялся синхронно в процессе, как и прямые вызовы .run() в test_rto_tasks.py.
+celery_app.conf.task_always_eager = True
+celery_app.conf.task_eager_propagates = True
 
 
 @pytest.fixture()
@@ -23,7 +30,7 @@ def db_engine():
 
 
 @pytest.fixture()
-def client(db_engine):
+def client(db_engine, monkeypatch):
     testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
 
     def override_get_db():
@@ -34,6 +41,11 @@ def client(db_engine):
             db.close()
 
     fastapi_app.dependency_overrides[get_db] = override_get_db
+    # Роуты вызывают recalculate_rto_for_driver_task.delay(...), который в
+    # eager-режиме выполняется синхронно и открывает сессию через
+    # app.tasks.rto_tasks.SessionLocal — подменяем её на тестовую БД, иначе
+    # таск попытается писать в боевой Postgres из settings.database_url.
+    monkeypatch.setattr("app.tasks.rto_tasks.SessionLocal", testing_session_local)
     with TestClient(fastapi_app) as test_client:
         yield test_client
     fastapi_app.dependency_overrides.clear()

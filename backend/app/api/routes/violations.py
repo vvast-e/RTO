@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -43,3 +43,26 @@ def list_violations(
         stmt = stmt.where(RtoViolation.resolved == resolved)
     stmt = stmt.order_by(RtoViolation.detected_at.desc()).offset(skip).limit(limit)
     return db.execute(stmt).scalars().all()
+
+
+@router.post("/{violation_id}/resolve", response_model=ViolationOut)
+def resolve_violation(
+    violation_id: uuid.UUID,
+    org_id: uuid.UUID = Depends(get_current_organization_id),
+    db: Session = Depends(get_db),
+):
+    """Помечает нарушение закрытым. Идемпотентно: повторный вызов для уже
+    закрытого нарушения не является ошибкой и просто возвращает его текущее
+    состояние."""
+    violation = db.get(RtoViolation, violation_id)
+    if violation is None:
+        raise HTTPException(status_code=404, detail="Нарушение не найдено")
+    driver = db.get(Driver, violation.driver_id)
+    if driver is None or driver.organization_id != org_id:
+        raise HTTPException(status_code=404, detail="Нарушение не найдено")
+
+    if not violation.resolved:
+        violation.resolved = True
+        db.commit()
+        db.refresh(violation)
+    return violation
