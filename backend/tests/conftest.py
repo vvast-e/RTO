@@ -46,6 +46,10 @@ def client(db_engine, monkeypatch):
     # app.tasks.rto_tasks.SessionLocal — подменяем её на тестовую БД, иначе
     # таск попытается писать в боевой Postgres из settings.database_url.
     monkeypatch.setattr("app.tasks.rto_tasks.SessionLocal", testing_session_local)
+    # Аналогично — периодический таск рассылки напоминаний (reminders.send_due)
+    # тоже открывает свою сессию напрямую через SessionLocal, а не через
+    # FastAPI dependency override.
+    monkeypatch.setattr("app.tasks.reminder_tasks.SessionLocal", testing_session_local)
     with TestClient(fastapi_app) as test_client:
         yield test_client
     fastapi_app.dependency_overrides.clear()

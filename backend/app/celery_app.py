@@ -13,8 +13,19 @@ celery_app.conf.beat_schedule = {
         "task": "rto.recalculate_for_all_organizations",
         "schedule": 3600.0,
     },
+    # Напоминания хранят только дату (target_date), не время — просрочка
+    # определяется по календарному дню, а не по минутам, поэтому частая
+    # проверка ничего не выигрывает. Раз в час — тот же интервал, что и у
+    # пересчёта РТО выше, этого достаточно, чтобы напоминание ушло в течение
+    # часа после наступления его даты.
+    "send-due-reminders-hourly": {
+        "task": "reminders.send_due",
+        "schedule": 3600.0,
+    },
 }
 
-# Регистрирует таски пересчёта РТО в celery_app (импорт в конце файла,
-# чтобы избежать циклического импорта celery_app <-> app.tasks.rto_tasks).
+# Регистрирует таски пересчёта РТО и рассылки напоминаний в celery_app
+# (импорт в конце файла, чтобы избежать циклического импорта celery_app <->
+# app.tasks.*).
+from app.tasks import reminder_tasks  # noqa: E402,F401
 from app.tasks import rto_tasks  # noqa: E402,F401

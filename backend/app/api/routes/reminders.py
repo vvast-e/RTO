@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.reminder import Reminder, ReminderType
 from app.schemas.reminder import ReminderCreate, ReminderOut
 from app.services.reminder_sender import TelegramChatNotLinkedError, get_reminder_sender
+from app.services.reminder_service import send_reminder as send_reminder_via_sender
 
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
 
@@ -56,11 +57,6 @@ def send_reminder(
 
     sender = get_reminder_sender()
     try:
-        telegram_message_id = sender.send(reminder)
+        return send_reminder_via_sender(db, reminder, sender)
     except TelegramChatNotLinkedError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
-    reminder.sent = True
-    reminder.telegram_message_id = telegram_message_id
-    db.commit()
-    db.refresh(reminder)
-    return reminder
