@@ -58,3 +58,29 @@ def fake_sms(monkeypatch):
     sender = FakeSmsSender()
     monkeypatch.setattr("app.services.auth_service.get_sms_sender", lambda: sender)
     return sender
+
+
+def register_and_login(client, fake_sms, phone: str = "+79990000001") -> dict:
+    """Регистрирует новую организацию/пользователя через SMS-флоу и возвращает
+    пару токенов. Общий помощник для тестов, которым нужен авторизованный клиент
+    (worktime/violations/trips и т.п.), не связанных напрямую с проверкой auth-флоу."""
+    resp = client.post("/api/auth/register/request-code", json={"phone": phone})
+    assert resp.status_code == 204
+    code = fake_sms.last_code
+    resp = client.post(
+        "/api/auth/register/confirm",
+        json={
+            "phone": phone,
+            "code": code,
+            "organization_name": "Тестовая организация",
+            "user_name": "Тестовый пользователь",
+        },
+    )
+    assert resp.status_code == 200
+    return resp.json()
+
+
+@pytest.fixture()
+def auth_headers(client, fake_sms) -> dict:
+    tokens = register_and_login(client, fake_sms)
+    return {"Authorization": f"Bearer {tokens['access_token']}"}
