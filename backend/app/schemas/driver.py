@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ class DriverCreate(DriverBase):
 
 class DriverOut(DriverBase):
     id: uuid.UUID
+    created_at: datetime
 
     class Config:
         from_attributes = True
