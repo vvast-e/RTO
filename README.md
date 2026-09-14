@@ -69,6 +69,42 @@ frontend/app/ — Next.js App Router
 4. **Формат CSV/Excel с тахографа** — уточнить у пилотных клиентов перед
    реализацией импорта WorkTimeEntry.
 
+## Telegram-бот (напоминания)
+
+Реальная отправка напоминаний идёт через HTTP Bot API Telegram
+(`backend/app/services/reminder_sender.py`, `TelegramReminderSender`),
+включается через `TELEGRAM_PROVIDER=telegram` + `TELEGRAM_BOT_TOKEN` в
+`.env` (по умолчанию — `console`, напоминание только логируется).
+
+Получить токен бота:
+
+1. Написать [@BotFather](https://t.me/BotFather) в Telegram, отправить
+   `/newbot`, задать имя и username (должен заканчиваться на `bot`).
+2. BotFather выдаст токен вида `123456789:AAаБВГ...` — вписать его в
+   `TELEGRAM_BOT_TOKEN` в `.env` (файл в `.gitignore`, в репозиторий не
+   попадает).
+3. Настроить вебхук, чтобы Telegram слал апдейты на `POST /api/telegram/webhook`:
+   ```
+   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<ваш-домен>/api/telegram/webhook"
+   ```
+   Для локальной разработки без публичного HTTPS-адреса нужен туннель
+   (например, ngrok) — Telegram не отправляет вебхуки на `localhost`.
+
+Привязка организации к чату:
+
+1. `POST /api/organizations/me/telegram-link-code` (с JWT) — возвращает
+   одноразовый код, действующий 10 минут
+   (`app/services/telegram_link.py:CODE_TTL_MINUTES`).
+2. Написать боту `/start <код>` — вебхук сопоставит код с организацией и
+   сохранит `chat_id` в `Organization.telegram_chat_id`.
+3. Пока чат не привязан, `POST /api/reminders/{id}/send` с
+   `TELEGRAM_PROVIDER=telegram` возвращает `409` с понятным сообщением
+   вместо падения.
+
+Не реализовано (следующий этап): периодическая Celery-задача, которая сама
+находит просроченные/приближающиеся напоминания и рассылает их без ручного
+вызова `/send`.
+
 ## Аутентификация
 
 Вход и регистрация организации — по номеру телефона через одноразовый

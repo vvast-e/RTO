@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     sms_provider: str = ""
     sms_api_key: str = ""
 
+    telegram_provider: str = ""
     telegram_bot_token: str = ""
 
     yookassa_shop_id: str = ""
