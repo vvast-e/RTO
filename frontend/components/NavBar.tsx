@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/vehicles", label: "Автомобили" },
   { href: "/worktime", label: "Рабочее время" },
   { href: "/violations", label: "Нарушения" },
+  { href: "/reminders", label: "Напоминания" },
 ];
 
 export default function NavBar() {

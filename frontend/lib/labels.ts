@@ -1,4 +1,4 @@
-import { EntryType, VehicleStatus, ViolationSeverity, ViolationType } from "./api";
+import { EntryType, ReminderType, VehicleStatus, ViolationSeverity, ViolationType } from "./api";
 
 export const VIOLATION_TYPE_LABELS: Record<ViolationType, string> = {
   daily_driving_exceeded: "Превышение суточного вождения",
@@ -24,6 +24,13 @@ export const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {
   active: "На линии",
   repair: "В ремонте",
   inactive: "Не используется",
+};
+
+export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
+  rto_deadline: "Срок РТО",
+  etrn_deadline: "Срок ЭТрН",
+  vehicle_inspection: "Техосмотр",
+  custom: "Другое",
 };
 
 export function formatDateTime(value: string): string {
