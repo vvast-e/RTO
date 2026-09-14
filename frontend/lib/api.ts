@@ -209,3 +209,45 @@ export function listViolations(filters: ViolationFilters = {}): Promise<Violatio
 export function resolveViolation(id: string): Promise<Violation> {
   return authPostJson(`/api/violations/${id}/resolve`);
 }
+
+export type ReminderType =
+  | "rto_deadline"
+  | "etrn_deadline"
+  | "vehicle_inspection"
+  | "custom";
+
+export interface Reminder {
+  id: string;
+  organization_id: string;
+  type: ReminderType;
+  target_date: string;
+  sent: boolean;
+  telegram_message_id: number | null;
+  created_at: string;
+}
+
+export interface ReminderCreatePayload {
+  type: ReminderType;
+  target_date: string;
+}
+
+export interface ReminderFilters {
+  sent?: boolean;
+  type?: ReminderType;
+}
+
+export function listReminders(filters: ReminderFilters = {}): Promise<Reminder[]> {
+  const params = new URLSearchParams();
+  if (filters.sent !== undefined) params.set("sent", String(filters.sent));
+  if (filters.type) params.set("type", filters.type);
+  const query = params.toString();
+  return authGetJson(`/api/reminders${query ? `?${query}` : ""}`);
+}
+
+export function createReminder(payload: ReminderCreatePayload): Promise<Reminder> {
+  return authPostJson("/api/reminders", payload);
+}
+
+export function sendReminder(id: string): Promise<Reminder> {
+  return authPostJson(`/api/reminders/${id}/send`);
+}
