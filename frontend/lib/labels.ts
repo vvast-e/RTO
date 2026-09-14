@@ -30,6 +30,7 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
   rto_deadline: "Срок РТО",
   etrn_deadline: "Срок ЭТрН",
   vehicle_inspection: "Техосмотр",
+  driver_license_expiry: "Истечение прав",
   custom: "Другое",
 };
 

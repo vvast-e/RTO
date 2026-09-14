@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-import { createDriver, Driver, listDrivers } from "@/lib/api";
+import { createDriver, Driver, listDrivers, updateDriver } from "@/lib/api";
 import { formatDateTime } from "@/lib/labels";
 
 export default function DriversPage() {
@@ -14,8 +14,10 @@ export default function DriversPage() {
   const [phone, setPhone] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [cardNumber, setCardNumber] = useState("");
+  const [licenseExpiryDate, setLicenseExpiryDate] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dateSavingId, setDateSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     listDrivers()
@@ -38,16 +40,32 @@ export default function DriversPage() {
         phone: phone.trim() || undefined,
         license_number: licenseNumber.trim() || undefined,
         tachograph_card_number: cardNumber.trim() || undefined,
+        license_expiry_date: licenseExpiryDate || undefined,
       });
       setDrivers((prev) => [...prev, driver]);
       setFullName("");
       setPhone("");
       setLicenseNumber("");
       setCardNumber("");
+      setLicenseExpiryDate("");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Не удалось добавить водителя");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleLicenseExpiryChange(driverId: string, value: string) {
+    setDateSavingId(driverId);
+    try {
+      const updated = await updateDriver(driverId, {
+        license_expiry_date: value || null,
+      });
+      setDrivers((prev) => prev.map((d) => (d.id === driverId ? updated : d)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить срок прав");
+    } finally {
+      setDateSavingId(null);
     }
   }
 
@@ -95,6 +113,15 @@ export default function DriversPage() {
             onChange={(e) => setCardNumber(e.target.value)}
           />
         </div>
+        <div>
+          <label className="block text-sm font-medium">Срок действия прав</label>
+          <input
+            type="date"
+            className="mt-1 rounded border px-3 py-2 text-sm"
+            value={licenseExpiryDate}
+            onChange={(e) => setLicenseExpiryDate(e.target.value)}
+          />
+        </div>
         <button
           type="submit"
           disabled={submitting}
@@ -120,6 +147,7 @@ export default function DriversPage() {
                 <th className="py-2 pr-4">ФИО</th>
                 <th className="py-2 pr-4">Номер карты тахографа</th>
                 <th className="py-2 pr-4">Добавлен</th>
+                <th className="py-2 pr-4">Срок действия прав</th>
               </tr>
             </thead>
             <tbody>
@@ -128,6 +156,15 @@ export default function DriversPage() {
                   <td className="py-2 pr-4">{driver.full_name}</td>
                   <td className="py-2 pr-4">{driver.tachograph_card_number ?? "—"}</td>
                   <td className="py-2 pr-4">{formatDateTime(driver.created_at)}</td>
+                  <td className="py-2 pr-4">
+                    <input
+                      type="date"
+                      className="rounded border px-2 py-1 text-sm"
+                      value={driver.license_expiry_date ?? ""}
+                      disabled={dateSavingId === driver.id}
+                      onChange={(e) => handleLicenseExpiryChange(driver.id, e.target.value)}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>

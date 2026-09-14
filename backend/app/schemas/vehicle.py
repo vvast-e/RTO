@@ -1,5 +1,6 @@
 import re
 import uuid
+from datetime import date
 
 from pydantic import BaseModel, field_validator
 
@@ -18,6 +19,7 @@ class VehicleBase(BaseModel):
     brand_model: str
     tachograph_type: str | None = None
     status: VehicleStatus = VehicleStatus.active
+    next_inspection_date: date | None = None
 
     @field_validator("plate_number")
     @classmethod
@@ -39,3 +41,26 @@ class VehicleOut(VehicleBase):
 
     class Config:
         from_attributes = True
+
+
+class VehicleUpdate(BaseModel):
+    """Только обновляемые поля — PATCH /api/vehicles/{id} применяет их через
+    exclude_unset, остальные поля записи не трогает."""
+
+    plate_number: str | None = None
+    brand_model: str | None = None
+    tachograph_type: str | None = None
+    status: VehicleStatus | None = None
+    next_inspection_date: date | None = None
+
+    @field_validator("plate_number")
+    @classmethod
+    def validate_plate(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        normalized = v.strip().upper().replace(" ", "")
+        if not PLATE_RE.match(normalized):
+            raise ValueError(
+                "Некорректный формат гос. номера РФ (ожидается, например, А000АА00)"
+            )
+        return normalized

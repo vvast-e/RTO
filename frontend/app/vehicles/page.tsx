@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-import { createVehicle, listVehicles, Vehicle, VehicleStatus } from "@/lib/api";
+import { createVehicle, listVehicles, updateVehicle, Vehicle, VehicleStatus } from "@/lib/api";
 import { VEHICLE_STATUS_LABELS } from "@/lib/labels";
 
 // Дублирует backend-regex (app/schemas/vehicle.py) для быстрой клиентской
@@ -18,8 +18,10 @@ export default function VehiclesPage() {
   const [brandModel, setBrandModel] = useState("");
   const [tachographType, setTachographType] = useState("");
   const [status, setStatus] = useState<VehicleStatus>("active");
+  const [nextInspectionDate, setNextInspectionDate] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dateSavingId, setDateSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     listVehicles()
@@ -53,16 +55,32 @@ export default function VehiclesPage() {
         brand_model: brandModel.trim(),
         tachograph_type: tachographType.trim() || undefined,
         status,
+        next_inspection_date: nextInspectionDate || undefined,
       });
       setVehicles((prev) => [...prev, vehicle]);
       setPlateNumber("");
       setBrandModel("");
       setTachographType("");
       setStatus("active");
+      setNextInspectionDate("");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Не удалось добавить автомобиль");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleInspectionDateChange(vehicleId: string, value: string) {
+    setDateSavingId(vehicleId);
+    try {
+      const updated = await updateVehicle(vehicleId, {
+        next_inspection_date: value || null,
+      });
+      setVehicles((prev) => prev.map((v) => (v.id === vehicleId ? updated : v)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить дату ТО");
+    } finally {
+      setDateSavingId(null);
     }
   }
 
@@ -116,6 +134,15 @@ export default function VehiclesPage() {
             ))}
           </select>
         </div>
+        <div>
+          <label className="block text-sm font-medium">Дата след. ТО</label>
+          <input
+            type="date"
+            className="mt-1 rounded border px-3 py-2 text-sm"
+            value={nextInspectionDate}
+            onChange={(e) => setNextInspectionDate(e.target.value)}
+          />
+        </div>
         <button
           type="submit"
           disabled={submitting}
@@ -142,6 +169,7 @@ export default function VehiclesPage() {
                 <th className="py-2 pr-4">Марка/модель</th>
                 <th className="py-2 pr-4">Тип тахографа</th>
                 <th className="py-2 pr-4">Статус</th>
+                <th className="py-2 pr-4">Дата след. ТО</th>
               </tr>
             </thead>
             <tbody>
@@ -151,6 +179,15 @@ export default function VehiclesPage() {
                   <td className="py-2 pr-4">{vehicle.brand_model}</td>
                   <td className="py-2 pr-4">{vehicle.tachograph_type ?? "—"}</td>
                   <td className="py-2 pr-4">{VEHICLE_STATUS_LABELS[vehicle.status]}</td>
+                  <td className="py-2 pr-4">
+                    <input
+                      type="date"
+                      className="rounded border px-2 py-1 text-sm"
+                      value={vehicle.next_inspection_date ?? ""}
+                      disabled={dateSavingId === vehicle.id}
+                      onChange={(e) => handleInspectionDateChange(vehicle.id, e.target.value)}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
