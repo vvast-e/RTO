@@ -129,9 +129,26 @@ class RtoCalculator:
         return violations
 
     def _check_daily_rest(self, entries: list[WorkTimeEntryLike]) -> list[ViolationCandidate]:
+        """Проверяет норматив ежедневного отдыха (9–11 ч).
+
+        Этому нормативу подчиняется только отдых, завершающий рабочий день —
+        то есть идущий сразу после ПОСЛЕДНЕГО за календарный день отрезка
+        вождения. Короткие перерывы между отрезками вождения в течение
+        одного дня (напр. обязательные 45 мин после непрерывного вождения)
+        покрываются отдельным нормативом min_break_after_continuous_minutes
+        и не должны засчитываться как недостаточный ежедневный отдых.
+        """
         violations = []
-        for prev, nxt in zip(entries, entries[1:]):
-            if prev.entry_type == EntryType.driving and nxt.entry_type == EntryType.rest:
+        last_driving_idx_by_day: dict[str, int] = {}
+        for idx, e in enumerate(entries):
+            if e.entry_type == EntryType.driving:
+                last_driving_idx_by_day[e.start_time.date().isoformat()] = idx
+
+        for idx in last_driving_idx_by_day.values():
+            if idx + 1 >= len(entries):
+                continue
+            nxt = entries[idx + 1]
+            if nxt.entry_type == EntryType.rest:
                 rest_hours = nxt.duration_hours
                 if rest_hours < self.rules.min_daily_rest_hours_reduced:
                     violations.append(

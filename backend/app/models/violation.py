@@ -11,10 +11,8 @@ from app.models.mixins import UUIDPKMixin, TimestampMixin
 
 
 class ViolationType(str, enum.Enum):
-    # TODO: типы нарушений зависят от точных нормативов РТО (приказ Минтранса,
-    # действующий с 01.09.2026). Значения ниже — рабочие заглушки под каркас
-    # RtoCalculator, цифры лимитов НЕ зафиксированы и не должны использоваться
-    # для реальных расчётов до сверки с официальным источником.
+    # Типы нарушений режима труда и отдыха согласно Приказу Минтранса России
+    # от 14.04.2026 № 160 (действует с 01.09.2026) — см. app.services.rto_rules.
     daily_driving_exceeded = "daily_driving_exceeded"
     continuous_driving_exceeded = "continuous_driving_exceeded"
     daily_rest_insufficient = "daily_rest_insufficient"

@@ -1,9 +1,8 @@
 """
 Юнит-тесты RtoCalculator.
 
-ВАЖНО: тестовые сценарии используют цифры-заглушки из app.services.rto_rules,
-которые ещё не сверены с официальным приказом Минтранса (см. TODO там).
-После сверки нормативов — актуализировать граничные значения в этих тестах.
+Нормативы в app.services.rto_rules сверены с Приказом Минтранса России
+от 14.04.2026 № 160 (действует с 01.09.2026).
 """
 
 from datetime import datetime, timedelta
@@ -89,6 +88,24 @@ def test_short_break_does_not_reset_continuous_timer():
     assert any(
         v.violation_type == ViolationType.continuous_driving_exceeded for v in violations
     )
+
+
+def test_short_break_between_driving_segments_is_not_daily_rest():
+    """Регрессия: короткий 45-минутный перерыв между отрезками вождения в
+    течение одного дня не должен засчитываться как недостаточный ежедневный
+    отдых — нормативу 9–11 ч подчиняется только отдых, завершающий день."""
+    entries = [
+        entry(EntryType.driving, BASE_DAY, 4.0),
+        entry(EntryType.rest, BASE_DAY + timedelta(hours=4), 0.75),  # 45 мин — не ежедневный отдых
+        entry(EntryType.driving, BASE_DAY + timedelta(hours=4.75), 4.0),
+        entry(EntryType.rest, BASE_DAY + timedelta(hours=8.75), 6.0),  # а вот это уже недостаточно
+    ]
+    calc = RtoCalculator()
+    violations = calc.evaluate(entries)
+    daily_rest_violations = [
+        v for v in violations if v.violation_type == ViolationType.daily_rest_insufficient
+    ]
+    assert len(daily_rest_violations) == 1
 
 
 def test_insufficient_daily_rest():
