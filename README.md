@@ -27,8 +27,17 @@ docker compose up --build
 ```bash
 cd backend
 pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload
 pytest
+```
+
+Применение миграций к БД (после `docker compose up -d postgres` либо на
+локальном Postgres 16):
+
+```bash
+cd backend
+alembic upgrade head
 ```
 
 ## Структура
@@ -59,11 +68,6 @@ frontend/app/ — Next.js App Router
    ветку в `get_sms_sender()`.
 4. **Формат CSV/Excel с тахографа** — уточнить у пилотных клиентов перед
    реализацией импорта WorkTimeEntry.
-5. **Alembic-миграции** — в проекте пока нет ни одной сгенерированной
-   миграции (`backend/alembic/versions/` пуст) ни для одной модели, включая
-   добавленную в этом этапе `PhoneVerificationCode`. Перед первым деплоем
-   на реальную БД нужно поднять Postgres и выполнить
-   `alembic revision --autogenerate -m "initial"` в `backend/`.
 
 ## Аутентификация
 
