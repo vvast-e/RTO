@@ -8,6 +8,8 @@ import { clearTokens } from "@/lib/auth";
 const LINKS = [
   { href: "/", label: "Главная" },
   { href: "/drivers", label: "Водители" },
+  { href: "/vehicles", label: "Автомобили" },
+  { href: "/worktime", label: "Рабочее время" },
   { href: "/violations", label: "Нарушения" },
 ];
 
