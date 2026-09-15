@@ -173,3 +173,52 @@ def test_generate_waybill_pdf_for_unknown_waybill_is_404(client, auth_headers):
         "/api/waybills/00000000-0000-0000-0000-000000000000/generate", headers=auth_headers
     )
     assert resp.status_code == 404
+
+
+def test_download_waybill_pdf_after_generate(
+    client, auth_headers, waybill_pdf_dir, fake_pdf_writer
+):
+    trip_id = _create_trip(client, auth_headers)
+    resp = client.post(
+        "/api/waybills",
+        json={"trip_id": trip_id, "document_number": "ПЛ-007", "issue_date": "2026-09-15"},
+        headers=auth_headers,
+    )
+    waybill_id = resp.json()["id"]
+    client.post(f"/api/waybills/{waybill_id}/generate", headers=auth_headers)
+
+    resp = client.get(f"/api/waybills/{waybill_id}/pdf", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert resp.content == b"%PDF-1.4 fake\n"
+
+
+def test_download_waybill_pdf_before_generate_is_404(client, auth_headers):
+    trip_id = _create_trip(client, auth_headers)
+    resp = client.post(
+        "/api/waybills",
+        json={"trip_id": trip_id, "document_number": "ПЛ-008", "issue_date": "2026-09-15"},
+        headers=auth_headers,
+    )
+    waybill_id = resp.json()["id"]
+
+    resp = client.get(f"/api/waybills/{waybill_id}/pdf", headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_download_waybill_pdf_for_foreign_organization_is_404(
+    client, fake_sms, auth_headers, waybill_pdf_dir, fake_pdf_writer
+):
+    trip_id = _create_trip(client, auth_headers)
+    resp = client.post(
+        "/api/waybills",
+        json={"trip_id": trip_id, "document_number": "ПЛ-009", "issue_date": "2026-09-15"},
+        headers=auth_headers,
+    )
+    waybill_id = resp.json()["id"]
+    client.post(f"/api/waybills/{waybill_id}/generate", headers=auth_headers)
+
+    other_tokens = register_and_login(client, fake_sms, phone="+79990000013")
+    other_headers = {"Authorization": f"Bearer {other_tokens['access_token']}"}
+    resp = client.get(f"/api/waybills/{waybill_id}/pdf", headers=other_headers)
+    assert resp.status_code == 404

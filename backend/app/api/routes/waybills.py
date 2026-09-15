@@ -1,6 +1,8 @@
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -112,3 +114,19 @@ def generate_waybill(
     db.commit()
     db.refresh(waybill)
     return waybill
+
+
+@router.get("/{waybill_id}/pdf")
+def download_waybill_pdf(
+    waybill_id: uuid.UUID,
+    org_id: uuid.UUID = Depends(get_current_organization_id),
+    db: Session = Depends(get_db),
+):
+    waybill = _get_own_waybill(db, waybill_id, org_id)
+    if not waybill.pdf_file_url or not os.path.isfile(waybill.pdf_file_url):
+        raise HTTPException(status_code=404, detail="PDF ещё не сгенерирован")
+    return FileResponse(
+        waybill.pdf_file_url,
+        media_type="application/pdf",
+        filename=f"waybill-{waybill.document_number}.pdf",
+    )

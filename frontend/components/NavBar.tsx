@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/worktime", label: "Рабочее время" },
   { href: "/violations", label: "Нарушения" },
   { href: "/reminders", label: "Напоминания" },
+  { href: "/waybills", label: "Путевые листы" },
   { href: "/subscription", label: "Подписка" },
 ];
 

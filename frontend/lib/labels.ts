@@ -3,9 +3,11 @@ import {
   ReminderType,
   SubscriptionPlan,
   SubscriptionStatus,
+  TripStatus,
   VehicleStatus,
   ViolationSeverity,
   ViolationType,
+  WaybillStatus,
 } from "./api";
 
 export const VIOLATION_TYPE_LABELS: Record<ViolationType, string> = {
@@ -52,6 +54,17 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
   active: "Активна",
   trial: "Пробный период",
   expired: "Истекла",
+};
+
+export const TRIP_STATUS_LABELS: Record<TripStatus, string> = {
+  planned: "Запланирован",
+  in_progress: "В пути",
+  completed: "Завершён",
+};
+
+export const WAYBILL_STATUS_LABELS: Record<WaybillStatus, string> = {
+  draft: "Черновик",
+  issued: "Выдан",
 };
 
 export function formatDateTime(value: string): string {
