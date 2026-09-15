@@ -21,6 +21,7 @@ from app.api.routes import (
     reminders,
     organizations,
     telegram,
+    subscriptions,
 )
 
 app = FastAPI(title="RTO-аналитика API", version="0.1.0")
@@ -42,6 +43,7 @@ app.include_router(waybills.router)
 app.include_router(reminders.router)
 app.include_router(organizations.router)
 app.include_router(telegram.router)
+app.include_router(subscriptions.router)
 
 
 @app.get("/health")

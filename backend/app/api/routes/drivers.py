@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from app.api.deps import get_current_organization_id
 from app.db.session import get_db
 from app.models.driver import Driver
 from app.schemas.driver import DriverCreate, DriverOut, DriverUpdate
+from app.services.subscription_service import SubscriptionBlockedError, ensure_subscription_active
 
 router = APIRouter(prefix="/api/drivers", tags=["drivers"])
 
@@ -29,6 +30,14 @@ def create_driver(
     org_id: uuid.UUID = Depends(get_current_organization_id),
     db: Session = Depends(get_db),
 ):
+    # У водителей нет собственного лимита по подписке (только у машин, см.
+    # ensure_can_create_vehicle) — но истёкшая подписка (status=expired)
+    # блокирует создание новых записей обоих типов одинаково.
+    try:
+        ensure_subscription_active(db, org_id)
+    except SubscriptionBlockedError as exc:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc))
+
     driver = Driver(organization_id=org_id, **payload.model_dump())
     db.add(driver)
     db.commit()
