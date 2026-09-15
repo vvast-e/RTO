@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { Driver, Violation, listDrivers, listViolations } from "@/lib/api";
+import SubscriptionBanner from "@/components/SubscriptionBanner";
 
 type DriverStatus = "red" | "yellow" | "green";
 
@@ -70,6 +71,8 @@ export default function HomePage() {
     <main className="mx-auto max-w-4xl p-4">
       <h1 className="text-2xl font-semibold">РТО-аналитика</h1>
       <p className="mt-2 text-sm text-gray-600">Статус режима труда и отдыха по водителям.</p>
+
+      <SubscriptionBanner />
 
       {loading && <p className="mt-4 text-sm text-gray-500">Загрузка...</p>}
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}

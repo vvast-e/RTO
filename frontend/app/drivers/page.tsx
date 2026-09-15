@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 
-import { createDriver, Driver, listDrivers, updateDriver } from "@/lib/api";
+import { ApiError, createDriver, Driver, listDrivers, updateDriver } from "@/lib/api";
 import { formatDateTime } from "@/lib/labels";
 
 export default function DriversPage() {
@@ -16,6 +17,7 @@ export default function DriversPage() {
   const [cardNumber, setCardNumber] = useState("");
   const [licenseExpiryDate, setLicenseExpiryDate] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [dateSavingId, setDateSavingId] = useState<string | null>(null);
 
@@ -29,6 +31,7 @@ export default function DriversPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setSubscriptionBlocked(false);
     if (!fullName.trim()) {
       setFormError("Укажите ФИО водителя");
       return;
@@ -49,6 +52,9 @@ export default function DriversPage() {
       setCardNumber("");
       setLicenseExpiryDate("");
     } catch (err) {
+      if (err instanceof ApiError && err.status === 402) {
+        setSubscriptionBlocked(true);
+      }
       setFormError(err instanceof Error ? err.message : "Не удалось добавить водителя");
     } finally {
       setSubmitting(false);
@@ -129,7 +135,19 @@ export default function DriversPage() {
         >
           {submitting ? "Добавление..." : "Добавить"}
         </button>
-        {formError && <p className="w-full text-sm text-red-600">{formError}</p>}
+        {formError && (
+          <p className="w-full text-sm text-red-600">
+            {formError}
+            {subscriptionBlocked && (
+              <>
+                {" "}
+                <Link href="/subscription" className="underline">
+                  Перейти к управлению подпиской
+                </Link>
+              </>
+            )}
+          </p>
+        )}
       </form>
 
       {loading && <p className="mt-4 text-sm text-gray-500">Загрузка...</p>}

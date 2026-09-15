@@ -2,6 +2,18 @@ import { authFetch, TokenPair } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+/** Ошибка API с HTTP-статусом — позволяет отличать 402 (лимит/истёкшая
+ * подписка) от прочих ошибок и показывать пользователю целевое действие
+ * (например, ссылку на /subscription), а не только текст detail. */
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function parseJsonResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = `Ошибка запроса (${res.status})`;
@@ -11,7 +23,7 @@ async function parseJsonResponse<T>(res: Response): Promise<T> {
     } catch {
       // тело не JSON — оставляем дефолтное сообщение
     }
-    throw new Error(detail);
+    throw new ApiError(res.status, detail);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -307,4 +319,33 @@ export interface TelegramLinkCode {
 
 export function getTelegramLinkCode(): Promise<TelegramLinkCode> {
   return authPostJson("/api/organizations/me/telegram-link-code");
+}
+
+export type SubscriptionPlan = "starter" | "pro" | "fleet";
+export type SubscriptionStatus = "active" | "trial" | "expired";
+
+export interface Subscription {
+  id: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  vehicles_limit: number;
+  vehicles_used: number;
+  price: number;
+  next_billing_date: string | null;
+}
+
+export interface SubscriptionUpdatePayload {
+  plan?: SubscriptionPlan;
+  status?: SubscriptionStatus;
+  vehicles_limit?: number;
+  price?: number;
+  next_billing_date?: string | null;
+}
+
+export function getSubscription(): Promise<Subscription> {
+  return authGetJson("/api/subscriptions/me");
+}
+
+export function updateSubscription(payload: SubscriptionUpdatePayload): Promise<Subscription> {
+  return authPatchJson("/api/subscriptions/me", payload);
 }
