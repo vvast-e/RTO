@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from app.api.deps import get_current_organization_id
 from app.db.session import get_db
 from app.models.vehicle import Vehicle
 from app.schemas.vehicle import VehicleCreate, VehicleOut, VehicleUpdate
+from app.services.subscription_service import SubscriptionBlockedError, ensure_can_create_vehicle
 
 router = APIRouter(prefix="/api/vehicles", tags=["vehicles"])
 
@@ -34,6 +35,11 @@ def create_vehicle(
     org_id: uuid.UUID = Depends(get_current_organization_id),
     db: Session = Depends(get_db),
 ):
+    try:
+        ensure_can_create_vehicle(db, org_id)
+    except SubscriptionBlockedError as exc:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc))
+
     vehicle = Vehicle(organization_id=org_id, **payload.model_dump())
     db.add(vehicle)
     db.commit()

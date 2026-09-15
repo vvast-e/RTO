@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.organization import Organization
 from app.models.phone_verification import PhoneVerificationCode, VerificationPurpose
+from app.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.services.sms import get_sms_sender
 
@@ -16,6 +17,10 @@ CODE_TTL_MINUTES = 5
 CODE_LENGTH = 6
 MAX_ATTEMPTS = 5
 RESEND_COOLDOWN_SECONDS = 60
+# Дефолтный лимит машин на trial-подписке — разумный старт для ИП с 1–3
+# машинами (основной сегмент MVP, см. память проекта), не блокирует typical
+# пилотного клиента сразу при регистрации.
+DEFAULT_TRIAL_VEHICLES_LIMIT = 3
 
 
 class AuthError(Exception):
@@ -116,6 +121,20 @@ def register_organization(db: Session, phone: str, organization_name: str, user_
     organization = Organization(name=organization_name)
     db.add(organization)
     db.flush()
+
+    # Автосоздание trial-подписки — без неё ensure_subscription_active/
+    # ensure_can_create_vehicle (app/services/subscription_service.py)
+    # блокировали бы создание первой же машины у только что
+    # зарегистрированной организации.
+    subscription = Subscription(
+        organization_id=organization.id,
+        plan=SubscriptionPlan.starter,
+        status=SubscriptionStatus.trial,
+        vehicles_limit=DEFAULT_TRIAL_VEHICLES_LIMIT,
+        price=0,
+        next_billing_date=None,
+    )
+    db.add(subscription)
 
     user = User(
         organization_id=organization.id,
