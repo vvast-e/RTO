@@ -1,4 +1,12 @@
-import { EntryType, ReminderType, VehicleStatus, ViolationSeverity, ViolationType } from "./api";
+import {
+  EntryType,
+  ReminderType,
+  SubscriptionPlan,
+  SubscriptionStatus,
+  VehicleStatus,
+  ViolationSeverity,
+  ViolationType,
+} from "./api";
 
 export const VIOLATION_TYPE_LABELS: Record<ViolationType, string> = {
   daily_driving_exceeded: "Превышение суточного вождения",
@@ -32,6 +40,18 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
   vehicle_inspection: "Техосмотр",
   driver_license_expiry: "Истечение прав",
   custom: "Другое",
+};
+
+export const SUBSCRIPTION_PLAN_LABELS: Record<SubscriptionPlan, string> = {
+  starter: "Starter",
+  pro: "Pro",
+  fleet: "Fleet",
+};
+
+export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
+  active: "Активна",
+  trial: "Пробный период",
+  expired: "Истекла",
 };
 
 export function formatDateTime(value: string): string {

@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/worktime", label: "Рабочее время" },
   { href: "/violations", label: "Нарушения" },
   { href: "/reminders", label: "Напоминания" },
+  { href: "/subscription", label: "Подписка" },
 ];
 
 export default function NavBar() {
