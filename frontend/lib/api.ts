@@ -349,3 +349,88 @@ export function getSubscription(): Promise<Subscription> {
 export function updateSubscription(payload: SubscriptionUpdatePayload): Promise<Subscription> {
   return authPatchJson("/api/subscriptions/me", payload);
 }
+
+export type TripStatus = "planned" | "in_progress" | "completed";
+
+export interface Trip {
+  id: string;
+  vehicle_id: string;
+  driver_id: string;
+  start_datetime: string;
+  end_datetime: string | null;
+  start_location: string | null;
+  end_location: string | null;
+  distance_km: number | null;
+  status: TripStatus;
+}
+
+export interface TripCreatePayload {
+  vehicle_id: string;
+  driver_id: string;
+  start_datetime: string;
+  end_datetime?: string;
+  start_location?: string;
+  end_location?: string;
+  distance_km?: number;
+  status?: TripStatus;
+}
+
+export function listTrips(): Promise<Trip[]> {
+  return authGetJson("/api/trips");
+}
+
+export function createTrip(payload: TripCreatePayload): Promise<Trip> {
+  return authPostJson("/api/trips", payload);
+}
+
+export type WaybillStatus = "draft" | "issued";
+
+export interface Waybill {
+  id: string;
+  trip_id: string;
+  document_number: string;
+  issue_date: string;
+  pdf_file_url: string | null;
+  status: WaybillStatus;
+  created_at: string;
+}
+
+export interface WaybillCreatePayload {
+  trip_id: string;
+  document_number: string;
+  issue_date: string;
+}
+
+export function listWaybills(tripId?: string): Promise<Waybill[]> {
+  const query = tripId ? `?trip_id=${tripId}` : "";
+  return authGetJson(`/api/waybills${query}`);
+}
+
+export function createWaybill(payload: WaybillCreatePayload): Promise<Waybill> {
+  return authPostJson("/api/waybills", payload);
+}
+
+export function issueWaybill(id: string): Promise<Waybill> {
+  return authPostJson(`/api/waybills/${id}/issue`);
+}
+
+export function generateWaybill(id: string): Promise<Waybill> {
+  return authPostJson(`/api/waybills/${id}/generate`);
+}
+
+/** Скачивание PDF требует Authorization-заголовок, обычная <a href> ссылка
+ * его не приложит — качаем через authFetch как blob и открываем локальную
+ * ссылку на него. */
+export async function downloadWaybillPdf(id: string, filename: string): Promise<void> {
+  const res = await authFetch(`/api/waybills/${id}/pdf`);
+  if (!res.ok) {
+    throw new ApiError(res.status, "Не удалось скачать PDF");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
